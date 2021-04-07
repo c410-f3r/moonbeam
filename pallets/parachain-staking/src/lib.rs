@@ -47,6 +47,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod benchmarking;
 mod inflation;
 #[cfg(test)]
 mod mock;
@@ -508,7 +510,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn nominator_state)]
 	/// Get nominator state associated with an account if account is nominating else None
-	type NominatorState<T: Config> = StorageMap<
+	pub type NominatorState<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -519,7 +521,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn collator_state)]
 	/// Get collator state associated with an account if account is collating else None
-	type CollatorState<T: Config> = StorageMap<
+	pub type CollatorState<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -653,6 +655,18 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Set the expectations for total staked. These expectations determine the issuance for
 		/// the round according to logic in `fn compute_issuance`
+		///
+		/// The dispatch origin for this call must be the root (sudo) account
+		///
+		/// # <weight>
+		/// - Independent of the arguments. Insignificant complexity.
+		/// - O(1).
+		/// ------------------
+		/// Weight: O(1)
+		/// DB Weight:
+		/// - Read: InflationConfig
+		/// - Write: InflationConfig
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn set_staking_expectations(
 			origin: OriginFor<T>,
@@ -670,7 +684,19 @@ pub mod pallet {
 			<InflationConfig<T>>::put(config);
 			Ok(().into())
 		}
-		/// Set the annual inflation rate to derive per-round inflation
+		/// Set the annual inflation rate to derive a new per-round inflation
+		///
+		/// The dispatch origin for this call must be the root (sudo) account
+		///
+		/// # <weight>
+		/// - Independent of the arguments. Insignificant complexity.
+		/// - O(1).
+		/// ------------------
+		/// Weight: O(1)
+		/// DB Weight:
+		/// - Read: InflationConfig
+		/// - Write: InflationConfig
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn set_inflation(
 			origin: OriginFor<T>,
@@ -689,8 +715,20 @@ pub mod pallet {
 			Ok(().into())
 		}
 		#[pallet::weight(0)]
-		/// Set the total number of collator candidates selected per round
-		/// - changes are not applied until the start of the next round
+		/// Set total number of collator candidates selected each round
+		/// - not applied until the start of the next round
+		///
+		/// The dispatch origin for this call must be the root (sudo) account
+		///
+		/// # <weight>
+		/// - Independent of the arguments. Insignificant complexity.
+		/// - O(1).
+		/// ------------------
+		/// Weight: O(1)
+		/// DB Weight:
+		/// - Read: TotalSelected
+		/// - Write: TotalSelected
+		/// # </weight>
 		pub fn set_total_selected(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
 			frame_system::ensure_root(origin)?;
 			ensure!(
@@ -704,6 +742,18 @@ pub mod pallet {
 		}
 		#[pallet::weight(0)]
 		/// Set the commission for all collators
+		///
+		/// The dispatch origin for this call must be the root (sudo) account
+		///
+		/// # <weight>
+		/// - Independent of the arguments. Insignificant complexity.
+		/// - O(1).
+		/// ------------------
+		/// Weight: O(1)
+		/// DB Weight:
+		/// - Read: CollatorCommission
+		/// - Write: CollatorCommission
+		/// # </weight>
 		pub fn set_collator_commission(
 			origin: OriginFor<T>,
 			pct: Perbill,
@@ -718,6 +768,18 @@ pub mod pallet {
 		/// Set blocks per round
 		/// - if called with `new` less than length of current round, will transition immediately
 		/// in the next block
+		///
+		/// The dispatch origin for this call must be the root (sudo) account
+		///
+		/// # <weight>
+		/// - Independent of the arguments. Insignificant complexity.
+		/// - O(1).
+		/// ------------------
+		/// Weight: O(1)
+		/// DB Weight:
+		/// - Read: Round
+		/// - Write: Round
+		/// # </weight>
 		pub fn set_blocks_per_round(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
 			frame_system::ensure_root(origin)?;
 			ensure!(
@@ -731,8 +793,22 @@ pub mod pallet {
 			Self::deposit_event(Event::BlocksPerRoundSet(now, first, old, new));
 			Ok(().into())
 		}
-		/// Join the set of collator candidates
 		#[pallet::weight(0)]
+		/// Join the set of collator candidates
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// # <weight>
+		/// - Independent of the arguments. Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// - insertion into sorted candidate list => O(logN) where N is the number of
+		/// candidates in CandidatePool
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: CollatorState, NominatorState, CandidatePool, Total
+		/// - Writes: CollatorState, CandidatePool, Total
+		/// # </weight>
 		pub fn join_candidates(
 			origin: OriginFor<T>,
 			bond: BalanceOf<T>,
@@ -761,9 +837,22 @@ pub mod pallet {
 			Self::deposit_event(Event::JoinedCollatorCandidates(acc, bond, new_total));
 			Ok(().into())
 		}
-		/// Request to leave the set of candidates. If successful, the account is immediately
-		/// removed from the candidate pool to prevent selection as a collator, but unbonding is
-		/// executed with a delay of `BondDuration` rounds.
+		/// Leave the set of candidates. Upon success, caller is immediately removed from the
+		/// candidate pool to prevent selection as an active collator. Unbonding is executed with a
+		/// delay of `BondDuration` rounds.
+		///
+		/// The dispatch origin for this call must be _Signed_ by a collator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// - Insert into ExitQueue, to be removed 2 rounds later
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: CollatorState, NominatorState, CandidatePool
+		/// - Writes: CollatorState, CandidatePool, ExitQueue
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn leave_candidates(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let collator = ensure_signed(origin)?;
@@ -789,7 +878,19 @@ pub mod pallet {
 			Self::deposit_event(Event::CollatorScheduledExit(now, collator, when));
 			Ok(().into())
 		}
-		/// Temporarily leave the set of collator candidates without unbonding
+		/// Temporarily leave the set of active collator candidates without unbonding
+		///
+		/// The dispatch origin for this call must be _Signed_ by a collator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: CollatorState, CandidatePool
+		/// - Writes: CollatorState, CandidatePool
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn go_offline(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let collator = ensure_signed(origin)?;
@@ -797,7 +898,6 @@ pub mod pallet {
 			ensure!(state.is_active(), Error::<T>::AlreadyOffline);
 			state.go_offline();
 			let mut candidates = <CandidatePool<T>>::get();
-			// TODO: investigate possible bug in this next line
 			if candidates.remove(&Bond::from_owner(collator.clone())) {
 				<CandidatePool<T>>::put(candidates);
 			}
@@ -808,7 +908,19 @@ pub mod pallet {
 			));
 			Ok(().into())
 		}
-		/// Rejoin the set of collator candidates if previously had called `go_offline`
+		/// Rejoin the set of active collator candidates (iff previously had called `go_offline`)
+		///
+		/// The dispatch origin for this call must be _Signed_ by a collator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: CollatorState, CandidatePool
+		/// - Writes: CollatorState, CandidatePool
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn go_online(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let collator = ensure_signed(origin)?;
@@ -833,8 +945,20 @@ pub mod pallet {
 			Ok(().into())
 		}
 		/// Bond more for collator candidates
+		///
+		/// The dispatch origin for this call must be _Signed_ by a collator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: CollatorState, CandidatePool
+		/// - Writes: CollatorState, CandidatePool
+		/// # </weight>
 		#[pallet::weight(0)]
-		pub fn candidate_bond_more(
+		pub fn collator_bond_more(
 			origin: OriginFor<T>,
 			more: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
@@ -853,8 +977,20 @@ pub mod pallet {
 			Ok(().into())
 		}
 		/// Bond less for collator candidates
+		///
+		/// The dispatch origin for this call must be _Signed_ by a collator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: CollatorState, CandidatePool
+		/// - Writes: CollatorState, CandidatePool
+		/// # </weight>
 		#[pallet::weight(0)]
-		pub fn candidate_bond_less(
+		pub fn collator_bond_less(
 			origin: OriginFor<T>,
 			less: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
@@ -875,8 +1011,21 @@ pub mod pallet {
 			Self::deposit_event(Event::CollatorBondedLess(collator, before, after));
 			Ok(().into())
 		}
-		/// If caller is not a nominator, then join the set of nominators
-		/// If caller is a nominator, then makes nomination to change their nomination state
+		/// Make a nomination
+		/// - If caller is not already a nominator, then joins the set of nominators.
+		/// - If caller is a nominator, then makes new nomination and updates NominatorState
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: NominatorState, CollatorState, CandidatePool, Total
+		/// - Writes: NominatorState, CollatorState, CandidatePool, Total
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn nominate(
 			origin: OriginFor<T>,
@@ -962,7 +1111,19 @@ pub mod pallet {
 			}
 			Ok(().into())
 		}
-		/// Leave the set of nominators and, by implication, revoke all ongoing nominations
+		/// Leave the set of nominators and, by implication, revoke all ongoing nominations.
+		///
+		/// The dispatch origin for this call must be _Signed_ by a nominator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: NominatorState, CollatorState, CandidatePool, Total
+		/// - Writes: NominatorState, CollatorState, CandidatePool, Total
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn leave_nominators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let acc = ensure_signed(origin)?;
@@ -975,6 +1136,18 @@ pub mod pallet {
 			Ok(().into())
 		}
 		/// Revoke an existing nomination
+		///
+		/// The dispatch origin for this call must be _Signed_ by a nominator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: NominatorState, CollatorState, CandidatePool, Total
+		/// - Writes: NominatorState, CollatorState, CandidatePool, Total
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn revoke_nomination(
 			origin: OriginFor<T>,
@@ -982,7 +1155,19 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Self::nominator_revokes_collator(ensure_signed(origin)?, collator)
 		}
-		/// Bond more for nominators with respect to a specific collator candidate
+		/// Bond more for nominators to back a specific collator candidate
+		///
+		/// The dispatch origin for this call must be _Signed_ by a nominator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: NominatorState, CollatorState, CandidatePool, Total
+		/// - Writes: NominatorState, CollatorState, CandidatePool, Total
+		/// # </weight>
 		#[pallet::weight(0)]
 		pub fn nominator_bond_more(
 			origin: OriginFor<T>,
@@ -1011,7 +1196,18 @@ pub mod pallet {
 			));
 			Ok(().into())
 		}
-		/// Bond less for nominators with respect to a specific nominator candidate
+		/// Bond less for nominators to back a specific collator candidate
+		///
+		/// The dispatch origin for this call must be _Signed_ by a nominator.
+		///
+		/// # <weight>
+		/// - Moderate complexity.
+		/// - Contains a limited number of reads and writes.
+		/// ------------------
+		/// Weight: O(log(CandidatePool.len()))
+		/// DB Weight:
+		/// - Reads: NominatorState, CollatorState, CandidatePool, Total
+		/// - Writes: Nom
 		#[pallet::weight(0)]
 		pub fn nominator_bond_less(
 			origin: OriginFor<T>,
@@ -1076,15 +1272,12 @@ pub mod pallet {
 			let config = <InflationConfig<T>>::get();
 			let round_issuance = crate::inflation::round_issuance_range::<T>(config.round);
 			if staked < config.expect.min {
-				return round_issuance.min;
+				round_issuance.min
 			} else if staked > config.expect.max {
-				return round_issuance.max;
+				round_issuance.max
 			} else {
-				// TODO: split up into 3 branches
-				// 1. min < staked < ideal
-				// 2. ideal < staked < max
-				// 3. staked == ideal
-				return round_issuance.ideal;
+				// config.expect.min <= staked <= config.expect.max
+				round_issuance.ideal
 			}
 		}
 		fn nominator_revokes_collator(

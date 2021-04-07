@@ -611,12 +611,12 @@ fn collators_bond() {
 	five_collators_five_nominators().execute_with(|| {
 		roll_to(4);
 		assert_noop!(
-			Stake::candidate_bond_more(Origin::signed(6), 50),
+			Stake::collator_bond_more(Origin::signed(6), 50),
 			Error::<Test>::CandidateDNE
 		);
-		assert_ok!(Stake::candidate_bond_more(Origin::signed(1), 50));
+		assert_ok!(Stake::collator_bond_more(Origin::signed(1), 50));
 		assert_noop!(
-			Stake::candidate_bond_more(Origin::signed(1), 40),
+			Stake::collator_bond_more(Origin::signed(1), 40),
 			DispatchError::Module {
 				index: 1,
 				error: 3,
@@ -625,34 +625,34 @@ fn collators_bond() {
 		);
 		assert_ok!(Stake::leave_candidates(Origin::signed(1)));
 		assert_noop!(
-			Stake::candidate_bond_more(Origin::signed(1), 30),
+			Stake::collator_bond_more(Origin::signed(1), 30),
 			Error::<Test>::CannotActivateIfLeaving
 		);
 		roll_to(30);
 		assert_noop!(
-			Stake::candidate_bond_more(Origin::signed(1), 40),
+			Stake::collator_bond_more(Origin::signed(1), 40),
 			Error::<Test>::CandidateDNE
 		);
-		assert_ok!(Stake::candidate_bond_more(Origin::signed(2), 80));
-		assert_ok!(Stake::candidate_bond_less(Origin::signed(2), 90));
-		assert_ok!(Stake::candidate_bond_less(Origin::signed(3), 10));
+		assert_ok!(Stake::collator_bond_more(Origin::signed(2), 80));
+		assert_ok!(Stake::collator_bond_less(Origin::signed(2), 90));
+		assert_ok!(Stake::collator_bond_less(Origin::signed(3), 10));
 		assert_noop!(
-			Stake::candidate_bond_less(Origin::signed(2), 11),
+			Stake::collator_bond_less(Origin::signed(2), 11),
 			Error::<Test>::Underflow
 		);
 		assert_noop!(
-			Stake::candidate_bond_less(Origin::signed(2), 1),
+			Stake::collator_bond_less(Origin::signed(2), 1),
 			Error::<Test>::ValBondBelowMin
 		);
 		assert_noop!(
-			Stake::candidate_bond_less(Origin::signed(3), 1),
+			Stake::collator_bond_less(Origin::signed(3), 1),
 			Error::<Test>::ValBondBelowMin
 		);
 		assert_noop!(
-			Stake::candidate_bond_less(Origin::signed(4), 11),
+			Stake::collator_bond_less(Origin::signed(4), 11),
 			Error::<Test>::ValBondBelowMin
 		);
-		assert_ok!(Stake::candidate_bond_less(Origin::signed(4), 10));
+		assert_ok!(Stake::collator_bond_less(Origin::signed(4), 10));
 	});
 }
 
