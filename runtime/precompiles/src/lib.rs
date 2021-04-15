@@ -24,10 +24,10 @@ use pallet_evm_precompile_bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
 use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_simple::{ECRecover, Identity, Ripemd160, Sha256};
-use sp_core::H160;
-use sp_std::{marker::PhantomData, vec::Vec};
-use sp_io::offchain;
 use sp_core::offchain::Duration;
+use sp_core::H160;
+use sp_io::offchain;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 /// A precompile intended to burn gas and/or time without actually doing any work.
 /// Meant for testing.
@@ -49,7 +49,8 @@ impl Precompile for Sacrifice {
 		// input should be exactly 16 bytes (two 8-byte unsigned ints in big endian)
 		if input.len() != INPUT_SIZE_BYTES {
 			return Err(ExitError::Other(
-				"input length for Sacrifice must be exactly 16 bytes".into()));
+				"input length for Sacrifice must be exactly 16 bytes".into(),
+			));
 		}
 
 		// create 8-byte buffers and populate them from calldata...
@@ -69,7 +70,7 @@ impl Precompile for Sacrifice {
 				return Err(ExitError::OutOfGas);
 			}
 		}
-		
+
 		// TODO: impose gas-per-second constraint?
 
 		if msec_cost > 0 {
@@ -128,19 +129,63 @@ fn hash(a: u64) -> H160 {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::parameter_types;
+	use sp_core::H256;
+	use sp_io::TestExternalities;
+	use sp_runtime::{
+		testing::Header,
+		traits::{BlakeTwo256, IdentityLookup},
+	};
 	use std::time::{Duration, Instant};
-	// use sp_io::TestExternalities; XXX
 	extern crate hex;
 
-	/*
-	 * XXX
+	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+	type Block = frame_system::mocking::MockBlock<Test>;
+
+	frame_support::construct_runtime!(
+		pub enum Test where
+			Block = Block,
+			NodeBlock = Block,
+			UncheckedExtrinsic = UncheckedExtrinsic,
+		{
+			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		}
+	);
+
+	parameter_types! {
+		pub const BlockHashCount: u64 = 250;
+	}
+	impl frame_system::Config for Test {
+		type BaseCallFilter = ();
+		type BlockWeights = ();
+		type BlockLength = ();
+		type DbWeight = ();
+		type Origin = Origin;
+		type Index = u64;
+		type BlockNumber = u64;
+		type Call = Call;
+		type Hash = H256;
+		type Hashing = BlakeTwo256;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<Self::AccountId>;
+		type Header = Header;
+		type Event = ();
+		type BlockHashCount = BlockHashCount;
+		type Version = ();
+		type PalletInfo = PalletInfo;
+		type AccountData = ();
+		type OnNewAccount = ();
+		type OnKilledAccount = ();
+		type SystemWeightInfo = ();
+		type SS58Prefix = ();
+	}
+
 	pub fn new_test_ext() -> TestExternalities {
 		let t = frame_system::GenesisConfig::default()
 			.build_storage::<Test>()
 			.unwrap();
 		TestExternalities::new(t)
 	}
-	*/
 
 	#[test]
 	fn test_invalid_input_length() -> std::result::Result<(), ExitError> {
@@ -157,14 +202,18 @@ mod tests {
 		let input: [u8; 15] = [0; 15];
 		assert_eq!(
 			Sacrifice::execute(&input, Some(cost), &context),
-			Err(ExitError::Other("input length for Sacrifice must be exactly 16 bytes".into())),
+			Err(ExitError::Other(
+				"input length for Sacrifice must be exactly 16 bytes".into()
+			)),
 		);
 
 		// should fail with input of 17 byte length
 		let input: [u8; 17] = [0; 17];
 		assert_eq!(
 			Sacrifice::execute(&input, Some(cost), &context),
-			Err(ExitError::Other("input length for Sacrifice must be exactly 16 bytes".into())),
+			Err(ExitError::Other(
+				"input length for Sacrifice must be exactly 16 bytes".into()
+			)),
 		);
 
 		Ok(())
@@ -208,12 +257,8 @@ mod tests {
 		Ok(())
 	}
 
-	/*
-	 * TODO: the sleep() function inside the precompile must be run within an externalities
-	 *       environment
 	#[test]
-	fn test_sleep() -> std::result::Result<(), ExitError> {
-
+	fn test_sleep() {
 		new_test_ext().execute_with(|| {
 			let mut input: [u8; 16] = [0; 16];
 			input[8..].copy_from_slice(&10_u64.to_be_bytes()); // should be 10ms
@@ -233,9 +278,6 @@ mod tests {
 
 			assert!(start.elapsed().as_millis() > 10);
 			assert!(start.elapsed().as_millis() < 20); // give plenty of room, but put some bound on it
-
-			Ok(())
 		});
 	}
-	*/
 }

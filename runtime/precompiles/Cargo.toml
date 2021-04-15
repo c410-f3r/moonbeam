@@ -13,6 +13,7 @@ rustc-hex = { version = "2.0.1", default-features = false }
 
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 evm = { version = "0.26.0", default-features = false, features = ["with-codec"] }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-v1" }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "rococo-v1" }
@@ -25,12 +26,15 @@ pallet-evm-precompile-simple = { git = "https://github.com/purestake/frontier", 
 
 [dev-dependencies]
 hex = "0.4"
+serde = { version = "1.0.101", features = ["derive"] }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
 	"codec/std",
 	"frame-support/std",
+	"frame-system/std",
 	"evm/std",
 	"sp-std/std",
 	"sp-core/std",

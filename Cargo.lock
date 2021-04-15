@@ -7120,6 +7120,7 @@ version = "0.6.0"
 dependencies = [
  "evm",
  "frame-support",
+ "frame-system",
  "hex",
  "log",
  "pallet-evm",
@@ -7130,8 +7131,10 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.5.6",
  "rustc-hex",
+ "serde",
  "sp-core",
  "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 
