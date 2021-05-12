@@ -84,19 +84,19 @@ fc-db = { git = "https://github.com/purestake/frontier", branch = "joshy-substra
 fc-mapping-sync = { git = "https://github.com/purestake/frontier", branch = "joshy-substrate-2be8fcc4" }
 
 # Cumulus dependencies
-cumulus-client-cli = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-client-consensus-common = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-client-collator = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-client-network = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-primitives-core = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-client-service = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-client-consensus-relay-chain = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-test-relay-sproof-builder = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
-cumulus-primitives-parachain-inherent = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
+cumulus-client-cli = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-client-consensus-common = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-client-collator = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-client-network = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-primitives-core = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-client-service = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-client-consensus-relay-chain = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-test-relay-sproof-builder = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
+cumulus-primitives-parachain-inherent = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
 
 # Nimbus Dependency
 # TODO When we bump nimbus, we can depend on the smaller primitives crate here.
-pallet-author-inherent = { git = "https://github.com/purestake/cumulus", branch = "nimbus" }
+pallet-author-inherent = { git = "https://github.com/purestake/cumulus", rev = "48b8bd898913c9f64ea754d6368290075aaef97a" }
 
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1" }
